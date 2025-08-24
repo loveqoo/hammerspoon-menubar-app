@@ -10,8 +10,8 @@ local M = {}
 -- 메뉴바 아이템 생성
 function M.create()
 	local menubar = hs.menubar.new()
-	menubar:setTitle("...")
-	menubar:setTooltip("날씨 모니터")
+	menubar:setTitle("👻")
+	menubar:setTooltip("Hammerspoon 유틸리티")
 	-- 초기 메뉴 설정
 	menubar:setMenu({
 		{ title = "로딩 중...", disabled = true },
@@ -19,84 +19,88 @@ function M.create()
 	return menubar
 end
 
--- 날씨 데이터로 메뉴바 표시 업데이트
+-- 메뉴바 표시 업데이트
 function M.updateDisplay(menubar, data)
 	if not menubar then
 		return
 	end
+	
 	local menuItems = {}
-	-- 날씨 데이터 처리
-	local weather = data.weather
+	
+	-- 날씨 서브메뉴 생성
+	local weatherSubMenu = M.createWeatherSubMenu(data.weather)
+	table.insert(menuItems, {
+		title = "날씨",
+		menu = weatherSubMenu
+	})
+	
+	menubar:setMenu(menuItems)
+end
+
+-- 날씨 서브메뉴 생성
+function M.createWeatherSubMenu(weather)
+	local subMenuItems = {}
+	
 	if weather and not weather.error then
-		-- 온도로 메뉴바 제목 업데이트
-		menubar:setTitle(weather.temperature)
-		local cityName = weather.city or config.weather.city
-		menubar:setTooltip(cityName .. ": " .. weather.description .. " (" .. weather.timestamp .. ")")
 		-- 상세 날씨 메뉴 구성
-		table.insert(menuItems, {
+		table.insert(subMenuItems, {
 			title = weather.city .. ", " .. weather.country,
 			disabled = true,
 		})
-		table.insert(menuItems, { title = "-" })
-		table.insert(menuItems, {
+		table.insert(subMenuItems, { title = "-" })
+		table.insert(subMenuItems, {
 			title = "온도: " .. weather.temperature,
 			disabled = true,
 		})
-		table.insert(menuItems, {
+		table.insert(subMenuItems, {
 			title = "체감: " .. weather.feels_like,
 			disabled = true,
 		})
-		table.insert(menuItems, {
-			title = "상세: " .. weather.description,
+		table.insert(subMenuItems, {
+			title = "상태: " .. weather.description,
 			disabled = true,
 		})
-		table.insert(menuItems, {
+		table.insert(subMenuItems, {
 			title = "바람: " .. weather.wind_speed,
 			disabled = true,
 		})
-		table.insert(menuItems, {
+		table.insert(subMenuItems, {
 			title = "습도: " .. weather.humidity,
 			disabled = true,
 		})
-		table.insert(menuItems, {
+		table.insert(subMenuItems, {
 			title = "기압: " .. weather.pressure,
 			disabled = true,
 		})
+		table.insert(subMenuItems, { title = "-" })
+		table.insert(subMenuItems, {
+			title = "상세 정보",
+			fn = function()
+				M.showWeatherDetails(weather)
+			end,
+		})
 	else
 		-- 에러 또는 데이터 없음
-		menubar:setTitle("❌")
-		menubar:setTooltip("날씨 데이터 사용 불가")
 		local errorMsg = "날씨 데이터 없음"
 		if weather and weather.error then
 			errorMsg = weather.error
-		elseif data.weather == nil then
+		elseif weather == nil then
 			errorMsg = "API 응답 없음"
 		end
-		table.insert(menuItems, {
-			title = "❌ " .. errorMsg,
+		table.insert(subMenuItems, {
+			title = "오류: " .. errorMsg,
 			disabled = true,
 		})
+		table.insert(subMenuItems, { title = "-" })
+		table.insert(subMenuItems, {
+			title = "재시도",
+			fn = function()
+				hs.alert.show("재시도 중...")
+			end,
+		})
 	end
-	if #menuItems == 0 then
-		table.insert(menuItems, { title = "API 미설정", disabled = true })
-	end
-	-- 구분선과 컨트롤 추가
-	table.insert(menuItems, { title = "-" })
-	table.insert(menuItems, {
-		title = "Details",
-		fn = function()
-			local _weather = data and data.weather
-			M.showWeatherDetails(_weather)
-		end,
-	})
-	-- 마지막 업데이트 시간 표시
-	table.insert(menuItems, { title = "-" })
-	local lastUpdateTime = os.date("마지막 업데이트: %Y-%m-%d %H:%M:%S", os.time())
-	table.insert(menuItems, {
-		title = lastUpdateTime .. " (" .. config.weather.update_interval_sec .. "초 간격)",
-		disabled = true,
-	})
-	menubar:setMenu(menuItems)
+	
+	return subMenuItems
 end
 
 -- 메뉴바에 에러 표시
@@ -104,22 +108,17 @@ function M.showError(menubar, error)
 	if not menubar then
 		return
 	end
-	menubar:setTitle("❌ API")
+	menubar:setTitle("ERR")
+	menubar:setTooltip("오류 발생: " .. tostring(error))
 	menubar:setMenu({
 		{ title = "오류: " .. tostring(error), disabled = true },
 		{ title = "-" },
 		{
-			title = "Retry",
+			title = "재시도",
 			fn = function()
 				hs.alert.show("재시도 중...")
 			end,
-		},
-		{
-			title = "Settings",
-			fn = function()
-				M.showSettings()
-			end,
-		},
+		}
 	})
 end
 
@@ -128,13 +127,14 @@ function M.showWeatherDetails(data)
 	local cityName = (data and data.city) or config.weather.city
 	local details = cityName .. " 날씨 상세 정보\n\n"
 	if data and not data.error then
-		details = details .. "Temperature: " .. data.temperature .. "\n"
-		details = details .. "Feels like: " .. data.feels_like .. "\n"
-		details = details .. "Condition: " .. data.description .. "\n"
-		details = details .. "Humidity: " .. data.humidity .. "\n"
-		details = details .. "Wind Speed: " .. data.wind_speed .. "\n"
-		details = details .. "Pressure: " .. data.pressure .. "\n"
-		details = details .. "Updated: " .. data.timestamp .. "\n"
+		details = details .. "온도: " .. data.temperature .. "\n"
+		details = details .. "체감온도: " .. data.feels_like .. "\n"
+		details = details .. "상태: " .. data.description .. "\n"
+		details = details .. "습도: " .. data.humidity .. "\n"
+		details = details .. "바람세기: " .. data.wind_speed .. "\n"
+		details = details .. "기압: " .. data.pressure .. "\n"
+		details = details .. "수정: " .. data.timestamp .. "\n"
+		details = details .. "주기: " .. (config.weather.update_interval_sec or "N/A") .. "초\n"
 	else
 		details = details .. "오류: " .. (data and data.error or "데이터 사용 불가")
 	end

@@ -38,7 +38,7 @@ function M.init(userConfig)
 	M.menubarItem = menubar.create()
 	M:startPolling()
 	if M.config.showNotifications then
-		hs.alert.show("날씨 모니터링 시작")
+		hs.alert.show("👻 초기화 완료")
 	end
 	return M
 end
