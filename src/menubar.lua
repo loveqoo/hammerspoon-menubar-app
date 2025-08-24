@@ -125,7 +125,7 @@ end
 -- 상세 날씨 정보 표시
 function M.showWeatherDetails(data)
 	local cityName = (data and data.city) or config.weather.city
-	local details = cityName .. " 날씨 상세 정보\n\n"
+	local details = "지역: " .. cityName .. "\n\n"
 	if data and not data.error then
 		details = details .. "온도: " .. data.temperature .. "\n"
 		details = details .. "체감온도: " .. data.feels_like .. "\n"
